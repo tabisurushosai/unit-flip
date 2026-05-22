@@ -88,6 +88,7 @@ function createPopup(): HTMLElement {
   const fromSelect = createSelect("fromUnit", []);
   const output = createOutput("outputValue");
   const toSelect = createSelect("toUnit", []);
+  const swapButton = createSwapButton();
 
   const syncUnitOptions = () => {
     const category =
@@ -102,13 +103,49 @@ function createPopup(): HTMLElement {
     }
   };
 
-  categorySelect.addEventListener("change", syncUnitOptions);
+  const updateConversion = () => {
+    if (input.value === "") {
+      output.value = "";
+      return;
+    }
+
+    const inputValue = input.valueAsNumber;
+    if (!Number.isFinite(inputValue)) {
+      output.value = "";
+      return;
+    }
+
+    const result = convertUnit(
+      inputValue,
+      categorySelect.value,
+      fromSelect.value,
+      toSelect.value,
+    );
+    output.value = formatConversionResult(result);
+  };
+
+  categorySelect.addEventListener("change", () => {
+    syncUnitOptions();
+    updateConversion();
+  });
+  input.addEventListener("input", updateConversion);
+  fromSelect.addEventListener("change", updateConversion);
+  toSelect.addEventListener("change", updateConversion);
+  swapButton.addEventListener("click", () => {
+    const currentFromUnit = fromSelect.value;
+    fromSelect.value = toSelect.value;
+    toSelect.value = currentFromUnit;
+    updateConversion();
+  });
+
   syncUnitOptions();
+  updateConversion();
 
   root.append(
     createField("カテゴリ", categorySelect),
     createField("入力", input),
     createField("変換元", fromSelect),
+    swapButton,
     createField("出力", output),
     createField("変換先", toSelect),
   );
@@ -153,6 +190,18 @@ function createNumberInput(name: string, placeholder: string): HTMLInputElement 
   input.style.width = "100%";
 
   return input;
+}
+
+function createSwapButton(): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "入れ替え";
+  button.style.minHeight = "34px";
+  button.style.font = "inherit";
+  button.style.fontWeight = "600";
+  button.style.width = "100%";
+
+  return button;
 }
 
 function createOutput(name: string): HTMLInputElement {
@@ -251,4 +300,12 @@ function convertFromBase(
   }
 
   return definition.fromBase(value);
+}
+
+function formatConversionResult(value: number): string {
+  if (Object.is(value, -0)) {
+    return "0";
+  }
+
+  return Number.parseFloat(value.toPrecision(12)).toString();
 }
