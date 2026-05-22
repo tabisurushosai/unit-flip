@@ -3,11 +3,26 @@ type UnitOption = {
   value: string;
 };
 
+type UnitValue = UnitOption["value"];
+
 type Category = {
   label: string;
   value: string;
   units: UnitOption[];
 };
+
+type CategoryValue = Category["value"];
+
+type LinearConversion = {
+  toBaseFactor: number;
+};
+
+type AffineConversion = {
+  toBase: (value: number) => number;
+  fromBase: (value: number) => number;
+};
+
+type ConversionDefinition = LinearConversion | AffineConversion;
 
 const categories: Category[] = [
   {
@@ -160,4 +175,80 @@ function replaceOptions(
       return option;
     }),
   );
+}
+
+const conversionDefinitions: Record<
+  CategoryValue,
+  Record<UnitValue, ConversionDefinition>
+> = {
+  length: {
+    m: { toBaseFactor: 1 },
+    km: { toBaseFactor: 1000 },
+    cm: { toBaseFactor: 0.01 },
+    in: { toBaseFactor: 0.0254 },
+    ft: { toBaseFactor: 0.3048 },
+  },
+  weight: {
+    g: { toBaseFactor: 1 },
+    kg: { toBaseFactor: 1000 },
+    lb: { toBaseFactor: 453.59237 },
+    oz: { toBaseFactor: 28.349523125 },
+  },
+  temperature: {
+    c: {
+      toBase: (value) => value,
+      fromBase: (value) => value,
+    },
+    f: {
+      toBase: (value) => (value - 32) * (5 / 9),
+      fromBase: (value) => value * (9 / 5) + 32,
+    },
+    k: {
+      toBase: (value) => value - 273.15,
+      fromBase: (value) => value + 273.15,
+    },
+  },
+  volume: {
+    l: { toBaseFactor: 1 },
+    ml: { toBaseFactor: 0.001 },
+    m3: { toBaseFactor: 1000 },
+    gal: { toBaseFactor: 3.785411784 },
+  },
+};
+
+function convertUnit(
+  value: number,
+  categoryValue: CategoryValue,
+  fromUnit: UnitValue,
+  toUnit: UnitValue,
+): number {
+  const categoryDefinitions = conversionDefinitions[categoryValue];
+  const fromDefinition = categoryDefinitions[fromUnit];
+  const toDefinition = categoryDefinitions[toUnit];
+
+  if (!fromDefinition || !toDefinition) {
+    throw new Error("Unsupported unit conversion.");
+  }
+
+  const baseValue = convertToBase(value, fromDefinition);
+  return convertFromBase(baseValue, toDefinition);
+}
+
+function convertToBase(value: number, definition: ConversionDefinition): number {
+  if ("toBaseFactor" in definition) {
+    return value * definition.toBaseFactor;
+  }
+
+  return definition.toBase(value);
+}
+
+function convertFromBase(
+  value: number,
+  definition: ConversionDefinition,
+): number {
+  if ("toBaseFactor" in definition) {
+    return value / definition.toBaseFactor;
+  }
+
+  return definition.fromBase(value);
 }
