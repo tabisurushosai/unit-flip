@@ -1,12 +1,12 @@
 type UnitOption = {
-  label: string;
+  labelKey: string;
   value: string;
 };
 
 type UnitValue = UnitOption["value"];
 
 type Category = {
-  label: string;
+  labelKey: string;
   value: string;
   units: UnitOption[];
 };
@@ -34,43 +34,43 @@ const STORAGE_KEY_LAST_SELECTION = "unitFlipLastSelection";
 
 const categories: Category[] = [
   {
-    label: "長さ",
+    labelKey: "categoryLength",
     value: "length",
     units: [
-      { label: "メートル", value: "m" },
-      { label: "キロメートル", value: "km" },
-      { label: "センチメートル", value: "cm" },
-      { label: "インチ", value: "in" },
-      { label: "フィート", value: "ft" },
+      { labelKey: "unitMeter", value: "m" },
+      { labelKey: "unitKilometer", value: "km" },
+      { labelKey: "unitCentimeter", value: "cm" },
+      { labelKey: "unitInch", value: "in" },
+      { labelKey: "unitFoot", value: "ft" },
     ],
   },
   {
-    label: "重さ",
+    labelKey: "categoryWeight",
     value: "weight",
     units: [
-      { label: "グラム", value: "g" },
-      { label: "キログラム", value: "kg" },
-      { label: "ポンド", value: "lb" },
-      { label: "オンス", value: "oz" },
+      { labelKey: "unitGram", value: "g" },
+      { labelKey: "unitKilogram", value: "kg" },
+      { labelKey: "unitPound", value: "lb" },
+      { labelKey: "unitOunce", value: "oz" },
     ],
   },
   {
-    label: "温度",
+    labelKey: "categoryTemperature",
     value: "temperature",
     units: [
-      { label: "摂氏", value: "c" },
-      { label: "華氏", value: "f" },
-      { label: "ケルビン", value: "k" },
+      { labelKey: "unitCelsius", value: "c" },
+      { labelKey: "unitFahrenheit", value: "f" },
+      { labelKey: "unitKelvin", value: "k" },
     ],
   },
   {
-    label: "体積",
+    labelKey: "categoryVolume",
     value: "volume",
     units: [
-      { label: "リットル", value: "l" },
-      { label: "ミリリットル", value: "ml" },
-      { label: "立方メートル", value: "m3" },
-      { label: "ガロン", value: "gal" },
+      { labelKey: "unitLiter", value: "l" },
+      { labelKey: "unitMilliliter", value: "ml" },
+      { labelKey: "unitCubicMeter", value: "m3" },
+      { labelKey: "unitGallon", value: "gal" },
     ],
   },
 ];
@@ -81,6 +81,8 @@ if (!app) {
   throw new Error("App container was not found.");
 }
 
+document.title = t("extName");
+document.querySelector("#appTitle")?.replaceChildren(t("extName"));
 app.replaceChildren(createPopup());
 
 function createPopup(): HTMLElement {
@@ -90,7 +92,7 @@ function createPopup(): HTMLElement {
 
   const categorySelect = createSelect(
     "category",
-    categories.map(({ label, value }) => ({ label, value })),
+    categories.map(({ labelKey, value }) => ({ labelKey, value })),
   );
   const input = createNumberInput("inputValue", "0");
   const fromSelect = createSelect("fromUnit", []);
@@ -180,12 +182,12 @@ function createPopup(): HTMLElement {
   });
 
   root.append(
-    createField("カテゴリ", categorySelect),
-    createField("入力", input),
-    createField("変換元", fromSelect),
+    createField(t("fieldCategory"), categorySelect),
+    createField(t("fieldInput"), input),
+    createField(t("fieldFromUnit"), fromSelect),
     swapButton,
-    createField("出力", output),
-    createField("変換先", toSelect),
+    createField(t("fieldOutput"), output),
+    createField(t("fieldToUnit"), toSelect),
   );
 
   return root;
@@ -233,7 +235,7 @@ function createNumberInput(name: string, placeholder: string): HTMLInputElement 
 function createSwapButton(): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = "入れ替え";
+  button.textContent = t("actionSwap");
   button.style.minHeight = "34px";
   button.style.font = "inherit";
   button.style.fontWeight = "600";
@@ -245,7 +247,7 @@ function createSwapButton(): HTMLButtonElement {
 function createOutput(name: string): HTMLInputElement {
   const output = createNumberInput(name, "");
   output.readOnly = true;
-  output.placeholder = "変換結果";
+  output.placeholder = t("outputPlaceholder");
 
   return output;
 }
@@ -255,13 +257,17 @@ function replaceOptions(
   options: UnitOption[],
 ): void {
   select.replaceChildren(
-    ...options.map(({ label, value }) => {
+    ...options.map(({ labelKey, value }) => {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = label;
+      option.textContent = t(labelKey);
       return option;
     }),
   );
+}
+
+function t(messageName: string): string {
+  return chrome.i18n.getMessage(messageName) || messageName;
 }
 
 function getValidUnitValue(

@@ -1,1 +1,33 @@
-{ "extName": { "message": "Unit Flip" }, "extDesc": { "message": "Convert length, weight, temperature, and volume units offline. Instant results as you type." } }
+{
+  "extName": { "message": "Unit Flip" },
+  "extDesc": {
+    "message": "Convert length, weight, temperature, and volume units offline. Instant results as you type."
+  },
+  "fieldCategory": { "message": "Category" },
+  "fieldInput": { "message": "Input" },
+  "fieldFromUnit": { "message": "From" },
+  "fieldOutput": { "message": "Output" },
+  "fieldToUnit": { "message": "To" },
+  "actionSwap": { "message": "Swap" },
+  "outputPlaceholder": { "message": "Converted result" },
+  "categoryLength": { "message": "Length" },
+  "categoryWeight": { "message": "Weight" },
+  "categoryTemperature": { "message": "Temperature" },
+  "categoryVolume": { "message": "Volume" },
+  "unitMeter": { "message": "Meter" },
+  "unitKilometer": { "message": "Kilometer" },
+  "unitCentimeter": { "message": "Centimeter" },
+  "unitInch": { "message": "Inch" },
+  "unitFoot": { "message": "Foot" },
+  "unitGram": { "message": "Gram" },
+  "unitKilogram": { "message": "Kilogram" },
+  "unitPound": { "message": "Pound" },
+  "unitOunce": { "message": "Ounce" },
+  "unitCelsius": { "message": "Celsius" },
+  "unitFahrenheit": { "message": "Fahrenheit" },
+  "unitKelvin": { "message": "Kelvin" },
+  "unitLiter": { "message": "Liter" },
+  "unitMilliliter": { "message": "Milliliter" },
+  "unitCubicMeter": { "message": "Cubic meter" },
+  "unitGallon": { "message": "Gallon" }
+}
