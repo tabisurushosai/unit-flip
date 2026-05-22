@@ -8,12 +8,37 @@
   "fieldFromUnit": { "message": "変換元" },
   "fieldOutput": { "message": "出力" },
   "fieldToUnit": { "message": "変換先" },
+  "fieldCheckoutUrl": { "message": "Stripe Checkout URL" },
+  "fieldFavorites": { "message": "お気に入りペア" },
   "actionSwap": { "message": "入れ替え" },
+  "actionStartTrial": { "message": "7日間トライアルを開始" },
+  "actionAddFavorite": { "message": "現在のペアをお気に入りに追加" },
+  "actionRemoveFavorite": { "message": "削除" },
   "outputPlaceholder": { "message": "変換結果" },
+  "premiumTitle": { "message": "Premium ($3買い切り)" },
+  "premiumStatusFree": {
+    "message": "無料版: 長さ・重さ・温度・体積を利用できます。"
+  },
+  "premiumStatusTrialActive": {
+    "message": "トライアル中。終了日:"
+  },
+  "premiumStatusTrialExpired": {
+    "message": "トライアルは終了しました。Premium購入で追加カテゴリとお気に入りペアを利用できます。"
+  },
+  "premiumStatusPurchased": {
+    "message": "Premium購入済み。追加カテゴリとお気に入りペアを利用できます。"
+  },
+  "favoritesPremiumOnly": {
+    "message": "Premiumでお気に入りペアを利用できます。"
+  },
+  "favoritesEmpty": { "message": "お気に入りはまだありません。" },
   "categoryLength": { "message": "長さ" },
   "categoryWeight": { "message": "重さ" },
   "categoryTemperature": { "message": "温度" },
   "categoryVolume": { "message": "体積" },
+  "categoryArea": { "message": "面積" },
+  "categorySpeed": { "message": "速度" },
+  "categoryData": { "message": "データ量" },
   "unitMeter": { "message": "メートル" },
   "unitKilometer": { "message": "キロメートル" },
   "unitCentimeter": { "message": "センチメートル" },
@@ -29,5 +54,17 @@
   "unitLiter": { "message": "リットル" },
   "unitMilliliter": { "message": "ミリリットル" },
   "unitCubicMeter": { "message": "立方メートル" },
-  "unitGallon": { "message": "ガロン" }
+  "unitGallon": { "message": "ガロン" },
+  "unitSquareMeter": { "message": "平方メートル" },
+  "unitSquareKilometer": { "message": "平方キロメートル" },
+  "unitSquareFoot": { "message": "平方フィート" },
+  "unitAcre": { "message": "エーカー" },
+  "unitMeterPerSecond": { "message": "メートル毎秒" },
+  "unitKilometerPerHour": { "message": "キロメートル毎時" },
+  "unitMilePerHour": { "message": "マイル毎時" },
+  "unitKnot": { "message": "ノット" },
+  "unitByte": { "message": "バイト" },
+  "unitKilobyte": { "message": "キロバイト" },
+  "unitMegabyte": { "message": "メガバイト" },
+  "unitGigabyte": { "message": "ギガバイト" }
 }

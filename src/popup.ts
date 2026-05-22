@@ -8,6 +8,7 @@ type UnitValue = UnitOption["value"];
 type Category = {
   labelKey: string;
   value: string;
+  premium?: boolean;
   units: UnitOption[];
 };
 
@@ -30,7 +31,22 @@ type StoredSelection = {
   toUnit?: UnitValue;
 };
 
+type StoredPremiumState = {
+  purchased?: boolean;
+  trialStartedAt?: string;
+};
+
+type FavoritePair = {
+  category: CategoryValue;
+  fromUnit: UnitValue;
+  toUnit: UnitValue;
+};
+
 const STORAGE_KEY_LAST_SELECTION = "unitFlipLastSelection";
+const STORAGE_KEY_PREMIUM_STATE = "unitFlipPremiumState";
+const STORAGE_KEY_FAVORITE_PAIRS = "unitFlipFavoritePairs";
+const STRIPE_CHECKOUT_URL = "https://checkout.stripe.com/c/pay/unit-flip";
+const TRIAL_LENGTH_DAYS = 7;
 
 const categories: Category[] = [
   {
@@ -73,6 +89,39 @@ const categories: Category[] = [
       { labelKey: "unitGallon", value: "gal" },
     ],
   },
+  {
+    labelKey: "categoryArea",
+    value: "area",
+    premium: true,
+    units: [
+      { labelKey: "unitSquareMeter", value: "m2" },
+      { labelKey: "unitSquareKilometer", value: "km2" },
+      { labelKey: "unitSquareFoot", value: "ft2" },
+      { labelKey: "unitAcre", value: "acre" },
+    ],
+  },
+  {
+    labelKey: "categorySpeed",
+    value: "speed",
+    premium: true,
+    units: [
+      { labelKey: "unitMeterPerSecond", value: "mps" },
+      { labelKey: "unitKilometerPerHour", value: "kph" },
+      { labelKey: "unitMilePerHour", value: "mph" },
+      { labelKey: "unitKnot", value: "kt" },
+    ],
+  },
+  {
+    labelKey: "categoryData",
+    value: "data",
+    premium: true,
+    units: [
+      { labelKey: "unitByte", value: "b" },
+      { labelKey: "unitKilobyte", value: "kb" },
+      { labelKey: "unitMegabyte", value: "mb" },
+      { labelKey: "unitGigabyte", value: "gb" },
+    ],
+  },
 ];
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -90,23 +139,50 @@ function createPopup(): HTMLElement {
   root.style.display = "grid";
   root.style.gap = "12px";
 
-  const categorySelect = createSelect(
-    "category",
-    categories.map(({ labelKey, value }) => ({ labelKey, value })),
-  );
+  const premiumState: StoredPremiumState = {};
+  let favoritePairs: FavoritePair[] = [];
+
+  const categorySelect = createSelect("category", []);
   const input = createNumberInput("inputValue", "0");
   const fromSelect = createSelect("fromUnit", []);
   const output = createOutput("outputValue");
   const toSelect = createSelect("toUnit", []);
   const swapButton = createSwapButton();
+  const premiumStatus = createMutedText();
+  const startTrialButton = createActionButton("actionStartTrial");
+  const checkoutUrl = createTextValue(STRIPE_CHECKOUT_URL);
+  const favoriteButton = createActionButton("actionAddFavorite");
+  const favoriteList = document.createElement("div");
+  favoriteList.style.display = "grid";
+  favoriteList.style.gap = "6px";
+
+  const getActiveCategories = () =>
+    categories.filter(({ premium }) => !premium || isPremiumActive(premiumState));
+
+  const syncCategoryOptions = (preferredCategory = categorySelect.value) => {
+    const activeCategories = getActiveCategories();
+    replaceOptions(
+      categorySelect,
+      activeCategories.map(({ labelKey, value }) => ({ labelKey, value })),
+    );
+    categorySelect.value = activeCategories.some(
+      ({ value }) => value === preferredCategory,
+    )
+      ? preferredCategory
+      : activeCategories[0]?.value ?? "";
+  };
 
   const syncUnitOptions = (
     preferredFromUnit = fromSelect.value,
     preferredToUnit = toSelect.value,
   ) => {
     const category =
-      categories.find(({ value }) => value === categorySelect.value) ??
-      categories[0];
+      getActiveCategories().find(({ value }) => value === categorySelect.value) ??
+      getActiveCategories()[0];
+
+    if (!category) {
+      return;
+    }
 
     replaceOptions(fromSelect, category.units);
     replaceOptions(toSelect, category.units);
@@ -152,6 +228,31 @@ function createPopup(): HTMLElement {
     output.value = formatConversionResult(result);
   };
 
+  const renderPremiumState = () => {
+    const premiumActive = isPremiumActive(premiumState);
+    premiumStatus.textContent = getPremiumStatusText(premiumState);
+    startTrialButton.disabled = Boolean(premiumState.trialStartedAt);
+    favoriteButton.disabled = !premiumActive;
+    renderFavoritePairs(
+      favoriteList,
+      favoritePairs,
+      premiumActive,
+      ({ category, fromUnit, toUnit }) => {
+        syncCategoryOptions(category);
+        syncUnitOptions(fromUnit, toUnit);
+        updateConversion();
+        saveSelection();
+      },
+      async (pairToRemove) => {
+        favoritePairs = favoritePairs.filter(
+          (pair) => !isSameFavoritePair(pair, pairToRemove),
+        );
+        await saveFavoritePairs(favoritePairs);
+        renderPremiumState();
+      },
+    );
+  };
+
   categorySelect.addEventListener("change", () => {
     syncUnitOptions();
     updateConversion();
@@ -173,13 +274,48 @@ function createPopup(): HTMLElement {
     updateConversion();
     saveSelection();
   });
+  startTrialButton.addEventListener("click", () => {
+    premiumState.trialStartedAt = new Date().toISOString();
+    void savePremiumState(premiumState);
+    syncCategoryOptions();
+    syncUnitOptions();
+    updateConversion();
+    renderPremiumState();
+  });
+  favoriteButton.addEventListener("click", () => {
+    if (!isPremiumActive(premiumState)) {
+      return;
+    }
 
+    const favoritePair = {
+      category: categorySelect.value,
+      fromUnit: fromSelect.value,
+      toUnit: toSelect.value,
+    };
+    if (!favoritePairs.some((pair) => isSameFavoritePair(pair, favoritePair))) {
+      favoritePairs = [...favoritePairs, favoritePair];
+      void saveFavoritePairs(favoritePairs);
+      renderPremiumState();
+    }
+  });
+
+  syncCategoryOptions();
   syncUnitOptions();
   updateConversion();
-  void restoreStoredSelection(categorySelect, (storedSelection) => {
-    syncUnitOptions(storedSelection.fromUnit, storedSelection.toUnit);
+
+  void initializePremium(premiumState, (loadedFavoritePairs) => {
+    favoritePairs = loadedFavoritePairs;
+    syncCategoryOptions();
+    syncUnitOptions();
     updateConversion();
+    renderPremiumState();
+    void restoreStoredSelection(categorySelect, (storedSelection) => {
+      syncCategoryOptions(storedSelection.category);
+      syncUnitOptions(storedSelection.fromUnit, storedSelection.toUnit);
+      updateConversion();
+    });
   });
+  renderPremiumState();
 
   root.append(
     createField(t("fieldCategory"), categorySelect),
@@ -188,6 +324,13 @@ function createPopup(): HTMLElement {
     swapButton,
     createField(t("fieldOutput"), output),
     createField(t("fieldToUnit"), toSelect),
+    createPremiumSection(
+      premiumStatus,
+      startTrialButton,
+      checkoutUrl,
+      favoriteButton,
+      favoriteList,
+    ),
   );
 
   return root;
@@ -233,9 +376,13 @@ function createNumberInput(name: string, placeholder: string): HTMLInputElement 
 }
 
 function createSwapButton(): HTMLButtonElement {
+  return createActionButton("actionSwap");
+}
+
+function createActionButton(messageKey: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = t("actionSwap");
+  button.textContent = t(messageKey);
   button.style.minHeight = "34px";
   button.style.font = "inherit";
   button.style.fontWeight = "600";
@@ -250,6 +397,56 @@ function createOutput(name: string): HTMLInputElement {
   output.placeholder = t("outputPlaceholder");
 
   return output;
+}
+
+function createMutedText(): HTMLParagraphElement {
+  const text = document.createElement("p");
+  text.style.margin = "0";
+  text.style.color = "#555";
+  text.style.fontSize = "12px";
+  text.style.lineHeight = "1.4";
+
+  return text;
+}
+
+function createTextValue(value: string): HTMLInputElement {
+  const input = document.createElement("input");
+  input.readOnly = true;
+  input.value = value;
+  input.style.boxSizing = "border-box";
+  input.style.font = "inherit";
+  input.style.minHeight = "34px";
+  input.style.width = "100%";
+
+  return input;
+}
+
+function createPremiumSection(
+  premiumStatus: HTMLElement,
+  startTrialButton: HTMLButtonElement,
+  checkoutUrl: HTMLInputElement,
+  favoriteButton: HTMLButtonElement,
+  favoriteList: HTMLElement,
+): HTMLElement {
+  const section = document.createElement("section");
+  section.style.borderTop = "1px solid #ddd";
+  section.style.display = "grid";
+  section.style.gap = "8px";
+  section.style.paddingTop = "12px";
+
+  const title = document.createElement("strong");
+  title.textContent = t("premiumTitle");
+
+  section.append(
+    title,
+    premiumStatus,
+    startTrialButton,
+    createField(t("fieldCheckoutUrl"), checkoutUrl),
+    favoriteButton,
+    createField(t("fieldFavorites"), favoriteList),
+  );
+
+  return section;
 }
 
 function replaceOptions(
@@ -332,6 +529,204 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
 }
 
+async function initializePremium(
+  premiumState: StoredPremiumState,
+  afterLoad: (favoritePairs: FavoritePair[]) => void,
+): Promise<void> {
+  Object.assign(premiumState, await loadPremiumState());
+  afterLoad(await loadFavoritePairs());
+}
+
+async function loadPremiumState(): Promise<StoredPremiumState> {
+  const result = await chrome.storage.local.get(STORAGE_KEY_PREMIUM_STATE);
+  const premiumState = result[STORAGE_KEY_PREMIUM_STATE];
+
+  if (!isStoredPremiumState(premiumState)) {
+    return {};
+  }
+
+  return premiumState;
+}
+
+async function savePremiumState(
+  premiumState: StoredPremiumState,
+): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEY_PREMIUM_STATE]: premiumState });
+}
+
+function isStoredPremiumState(value: unknown): value is StoredPremiumState {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const premiumState = value as Record<string, unknown>;
+  return (
+    (premiumState.purchased === undefined ||
+      typeof premiumState.purchased === "boolean") &&
+    isOptionalString(premiumState.trialStartedAt)
+  );
+}
+
+function isPremiumActive(premiumState: StoredPremiumState): boolean {
+  return Boolean(premiumState.purchased) || isTrialActive(premiumState);
+}
+
+function isTrialActive(premiumState: StoredPremiumState): boolean {
+  if (!premiumState.trialStartedAt) {
+    return false;
+  }
+
+  const trialStartedAt = new Date(premiumState.trialStartedAt).getTime();
+  if (!Number.isFinite(trialStartedAt)) {
+    return false;
+  }
+
+  const trialEndsAt =
+    trialStartedAt + TRIAL_LENGTH_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() < trialEndsAt;
+}
+
+function getPremiumStatusText(premiumState: StoredPremiumState): string {
+  if (premiumState.purchased) {
+    return t("premiumStatusPurchased");
+  }
+
+  if (isTrialActive(premiumState) && premiumState.trialStartedAt) {
+    const trialEndsAt = new Date(
+      new Date(premiumState.trialStartedAt).getTime() +
+        TRIAL_LENGTH_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return `${t("premiumStatusTrialActive")} ${trialEndsAt.toLocaleDateString()}`;
+  }
+
+  return premiumState.trialStartedAt
+    ? t("premiumStatusTrialExpired")
+    : t("premiumStatusFree");
+}
+
+async function loadFavoritePairs(): Promise<FavoritePair[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEY_FAVORITE_PAIRS);
+  const favoritePairs = result[STORAGE_KEY_FAVORITE_PAIRS];
+
+  if (!Array.isArray(favoritePairs)) {
+    return [];
+  }
+
+  return favoritePairs.filter(isFavoritePair);
+}
+
+async function saveFavoritePairs(favoritePairs: FavoritePair[]): Promise<void> {
+  await chrome.storage.local.set({
+    [STORAGE_KEY_FAVORITE_PAIRS]: favoritePairs,
+  });
+}
+
+function isFavoritePair(value: unknown): value is FavoritePair {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const favoritePair = value as Record<string, unknown>;
+  return (
+    typeof favoritePair.category === "string" &&
+    typeof favoritePair.fromUnit === "string" &&
+    typeof favoritePair.toUnit === "string" &&
+    categories.some(({ value }) => value === favoritePair.category)
+  );
+}
+
+function renderFavoritePairs(
+  container: HTMLElement,
+  favoritePairs: FavoritePair[],
+  premiumActive: boolean,
+  onApply: (favoritePair: FavoritePair) => void,
+  onRemove: (favoritePair: FavoritePair) => void,
+): void {
+  if (!premiumActive) {
+    container.replaceChildren(createInlineMessage(t("favoritesPremiumOnly")));
+    return;
+  }
+
+  if (favoritePairs.length === 0) {
+    container.replaceChildren(createInlineMessage(t("favoritesEmpty")));
+    return;
+  }
+
+  container.replaceChildren(
+    ...favoritePairs.map((favoritePair) =>
+      createFavoritePairRow(favoritePair, onApply, onRemove),
+    ),
+  );
+}
+
+function createInlineMessage(message: string): HTMLElement {
+  const text = document.createElement("span");
+  text.textContent = message;
+  text.style.color = "#555";
+  text.style.fontSize = "12px";
+  text.style.fontWeight = "400";
+  text.style.lineHeight = "1.4";
+
+  return text;
+}
+
+function createFavoritePairRow(
+  favoritePair: FavoritePair,
+  onApply: (favoritePair: FavoritePair) => void,
+  onRemove: (favoritePair: FavoritePair) => void,
+): HTMLElement {
+  const row = document.createElement("div");
+  row.style.display = "grid";
+  row.style.gap = "4px";
+  row.style.gridTemplateColumns = "1fr auto";
+
+  const applyButton = document.createElement("button");
+  applyButton.type = "button";
+  applyButton.textContent = formatFavoritePair(favoritePair);
+  applyButton.style.font = "inherit";
+  applyButton.style.minHeight = "30px";
+  applyButton.style.overflow = "hidden";
+  applyButton.style.textOverflow = "ellipsis";
+  applyButton.style.whiteSpace = "nowrap";
+  applyButton.addEventListener("click", () => onApply(favoritePair));
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.textContent = t("actionRemoveFavorite");
+  removeButton.title = t("actionRemoveFavorite");
+  removeButton.style.font = "inherit";
+  removeButton.style.minHeight = "30px";
+  removeButton.addEventListener("click", () => onRemove(favoritePair));
+
+  row.append(applyButton, removeButton);
+  return row;
+}
+
+function formatFavoritePair({ category, fromUnit, toUnit }: FavoritePair): string {
+  const categoryDefinition = categories.find(({ value }) => value === category);
+  const fromUnitDefinition = categoryDefinition?.units.find(
+    ({ value }) => value === fromUnit,
+  );
+  const toUnitDefinition = categoryDefinition?.units.find(
+    ({ value }) => value === toUnit,
+  );
+
+  return `${t(categoryDefinition?.labelKey ?? category)}: ${t(
+    fromUnitDefinition?.labelKey ?? fromUnit,
+  )} -> ${t(toUnitDefinition?.labelKey ?? toUnit)}`;
+}
+
+function isSameFavoritePair(
+  firstPair: FavoritePair,
+  secondPair: FavoritePair,
+): boolean {
+  return (
+    firstPair.category === secondPair.category &&
+    firstPair.fromUnit === secondPair.fromUnit &&
+    firstPair.toUnit === secondPair.toUnit
+  );
+}
+
 const conversionDefinitions: Record<
   CategoryValue,
   Record<UnitValue, ConversionDefinition>
@@ -368,6 +763,24 @@ const conversionDefinitions: Record<
     ml: { toBaseFactor: 0.001 },
     m3: { toBaseFactor: 1000 },
     gal: { toBaseFactor: 3.785411784 },
+  },
+  area: {
+    m2: { toBaseFactor: 1 },
+    km2: { toBaseFactor: 1000000 },
+    ft2: { toBaseFactor: 0.09290304 },
+    acre: { toBaseFactor: 4046.8564224 },
+  },
+  speed: {
+    mps: { toBaseFactor: 1 },
+    kph: { toBaseFactor: 0.2777777777777778 },
+    mph: { toBaseFactor: 0.44704 },
+    kt: { toBaseFactor: 0.5144444444444445 },
+  },
+  data: {
+    b: { toBaseFactor: 1 },
+    kb: { toBaseFactor: 1024 },
+    mb: { toBaseFactor: 1048576 },
+    gb: { toBaseFactor: 1073741824 },
   },
 };
 

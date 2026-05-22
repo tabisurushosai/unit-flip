@@ -8,12 +8,37 @@
   "fieldFromUnit": { "message": "From" },
   "fieldOutput": { "message": "Output" },
   "fieldToUnit": { "message": "To" },
+  "fieldCheckoutUrl": { "message": "Stripe Checkout URL" },
+  "fieldFavorites": { "message": "Favorite pairs" },
   "actionSwap": { "message": "Swap" },
+  "actionStartTrial": { "message": "Start 7-day trial" },
+  "actionAddFavorite": { "message": "Add current pair to favorites" },
+  "actionRemoveFavorite": { "message": "Remove" },
   "outputPlaceholder": { "message": "Converted result" },
+  "premiumTitle": { "message": "Premium ($3 one-time)" },
+  "premiumStatusFree": {
+    "message": "Free: length, weight, temperature, and volume are available."
+  },
+  "premiumStatusTrialActive": {
+    "message": "Trial active. Ends:"
+  },
+  "premiumStatusTrialExpired": {
+    "message": "Trial expired. Buy Premium to use extra categories and favorite pairs."
+  },
+  "premiumStatusPurchased": {
+    "message": "Premium purchased. Extra categories and favorite pairs are available."
+  },
+  "favoritesPremiumOnly": {
+    "message": "Favorite pairs are available with Premium."
+  },
+  "favoritesEmpty": { "message": "No favorites yet." },
   "categoryLength": { "message": "Length" },
   "categoryWeight": { "message": "Weight" },
   "categoryTemperature": { "message": "Temperature" },
   "categoryVolume": { "message": "Volume" },
+  "categoryArea": { "message": "Area" },
+  "categorySpeed": { "message": "Speed" },
+  "categoryData": { "message": "Data" },
   "unitMeter": { "message": "Meter" },
   "unitKilometer": { "message": "Kilometer" },
   "unitCentimeter": { "message": "Centimeter" },
@@ -29,5 +54,17 @@
   "unitLiter": { "message": "Liter" },
   "unitMilliliter": { "message": "Milliliter" },
   "unitCubicMeter": { "message": "Cubic meter" },
-  "unitGallon": { "message": "Gallon" }
+  "unitGallon": { "message": "Gallon" },
+  "unitSquareMeter": { "message": "Square meter" },
+  "unitSquareKilometer": { "message": "Square kilometer" },
+  "unitSquareFoot": { "message": "Square foot" },
+  "unitAcre": { "message": "Acre" },
+  "unitMeterPerSecond": { "message": "Meter per second" },
+  "unitKilometerPerHour": { "message": "Kilometer per hour" },
+  "unitMilePerHour": { "message": "Mile per hour" },
+  "unitKnot": { "message": "Knot" },
+  "unitByte": { "message": "Byte" },
+  "unitKilobyte": { "message": "Kilobyte" },
+  "unitMegabyte": { "message": "Megabyte" },
+  "unitGigabyte": { "message": "Gigabyte" }
 }
