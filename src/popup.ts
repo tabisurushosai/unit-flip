@@ -24,6 +24,14 @@ type AffineConversion = {
 
 type ConversionDefinition = LinearConversion | AffineConversion;
 
+type StoredSelection = {
+  category?: CategoryValue;
+  fromUnit?: UnitValue;
+  toUnit?: UnitValue;
+};
+
+const STORAGE_KEY_LAST_SELECTION = "unitFlipLastSelection";
+
 const categories: Category[] = [
   {
     label: "長さ",
@@ -90,7 +98,10 @@ function createPopup(): HTMLElement {
   const toSelect = createSelect("toUnit", []);
   const swapButton = createSwapButton();
 
-  const syncUnitOptions = () => {
+  const syncUnitOptions = (
+    preferredFromUnit = fromSelect.value,
+    preferredToUnit = toSelect.value,
+  ) => {
     const category =
       categories.find(({ value }) => value === categorySelect.value) ??
       categories[0];
@@ -98,9 +109,24 @@ function createPopup(): HTMLElement {
     replaceOptions(fromSelect, category.units);
     replaceOptions(toSelect, category.units);
 
-    if (category.units[1]) {
-      toSelect.value = category.units[1].value;
-    }
+    fromSelect.value = getValidUnitValue(
+      category,
+      preferredFromUnit,
+      category.units[0]?.value ?? "",
+    );
+    toSelect.value = getValidUnitValue(
+      category,
+      preferredToUnit,
+      category.units[1]?.value ?? category.units[0]?.value ?? "",
+    );
+  };
+
+  const saveSelection = () => {
+    void saveStoredSelection({
+      category: categorySelect.value,
+      fromUnit: fromSelect.value,
+      toUnit: toSelect.value,
+    });
   };
 
   const updateConversion = () => {
@@ -127,19 +153,31 @@ function createPopup(): HTMLElement {
   categorySelect.addEventListener("change", () => {
     syncUnitOptions();
     updateConversion();
+    saveSelection();
   });
   input.addEventListener("input", updateConversion);
-  fromSelect.addEventListener("change", updateConversion);
-  toSelect.addEventListener("change", updateConversion);
+  fromSelect.addEventListener("change", () => {
+    updateConversion();
+    saveSelection();
+  });
+  toSelect.addEventListener("change", () => {
+    updateConversion();
+    saveSelection();
+  });
   swapButton.addEventListener("click", () => {
     const currentFromUnit = fromSelect.value;
     fromSelect.value = toSelect.value;
     toSelect.value = currentFromUnit;
     updateConversion();
+    saveSelection();
   });
 
   syncUnitOptions();
   updateConversion();
+  void restoreStoredSelection(categorySelect, (storedSelection) => {
+    syncUnitOptions(storedSelection.fromUnit, storedSelection.toUnit);
+    updateConversion();
+  });
 
   root.append(
     createField("カテゴリ", categorySelect),
@@ -224,6 +262,68 @@ function replaceOptions(
       return option;
     }),
   );
+}
+
+function getValidUnitValue(
+  category: Category,
+  unitValue: UnitValue,
+  fallbackValue: UnitValue,
+): UnitValue {
+  return category.units.some(({ value }) => value === unitValue)
+    ? unitValue
+    : fallbackValue;
+}
+
+async function restoreStoredSelection(
+  categorySelect: HTMLSelectElement,
+  afterRestore: (storedSelection: StoredSelection) => void,
+): Promise<void> {
+  const storedSelection = await loadStoredSelection();
+  if (!storedSelection) {
+    return;
+  }
+
+  const category = categories.find(
+    ({ value }) => value === storedSelection.category,
+  );
+  if (!category) {
+    return;
+  }
+
+  categorySelect.value = category.value;
+  afterRestore(storedSelection);
+}
+
+async function loadStoredSelection(): Promise<StoredSelection | null> {
+  const result = await chrome.storage.local.get(STORAGE_KEY_LAST_SELECTION);
+  const selection = result[STORAGE_KEY_LAST_SELECTION];
+
+  if (!isStoredSelection(selection)) {
+    return null;
+  }
+
+  return selection;
+}
+
+async function saveStoredSelection(selection: StoredSelection): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEY_LAST_SELECTION]: selection });
+}
+
+function isStoredSelection(value: unknown): value is StoredSelection {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const selection = value as Record<string, unknown>;
+  return (
+    isOptionalString(selection.category) &&
+    isOptionalString(selection.fromUnit) &&
+    isOptionalString(selection.toUnit)
+  );
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
 }
 
 const conversionDefinitions: Record<
